@@ -1,0 +1,16 @@
+{
+  "name": "software-pisos-compartidos",
+  "private": true,
+  "packageManager": "pnpm@9.1.0",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "prepare": "husky install || echo 'skip'"
+  },
+  "devDependencies": {
+    "turbo": "^2.1.1",
+    "husky": "^9.1.6"
+  }
+}
+
