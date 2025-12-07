@@ -1,19 +1,20 @@
 import { Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ExpensesService } from './expenses.service';
 import { JwtAuthGuard } from '../auth/jwt.guard';
+import { ErrorMessages } from '../../common/error-messages';
 import { IsString, MinLength, IsOptional, IsNumber, IsDateString, Min } from 'class-validator';
 
 class CreateExpenseDto {
-  @IsString()
-  @MinLength(1)
+  @IsString({ message: ErrorMessages.VALIDATION_FIELD_REQUIRED })
+  @MinLength(1, { message: ErrorMessages.VALIDATION_FIELD_REQUIRED })
   groupId!: string;
 
-  @IsNumber()
-  @Min(0.01)
+  @IsNumber({}, { message: ErrorMessages.EXPENSE_AMOUNT_REQUIRED })
+  @Min(0.01, { message: ErrorMessages.EXPENSE_AMOUNT_INVALID })
   amount!: number;
 
-  @IsString()
-  @MinLength(1)
+  @IsString({ message: ErrorMessages.VALIDATION_FIELD_REQUIRED })
+  @MinLength(1, { message: ErrorMessages.EXPENSE_DESCRIPTION_REQUIRED })
   description!: string;
 
   @IsString()
@@ -24,7 +25,7 @@ class CreateExpenseDto {
   @IsOptional()
   payerId?: string;
 
-  @IsDateString()
+  @IsDateString({}, { message: ErrorMessages.VALIDATION_DATE_INVALID })
   date!: string;
 }
 

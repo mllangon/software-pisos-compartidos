@@ -8,11 +8,17 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Configuración para seed
+// Ejecutar con: pnpm prisma:seed
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
   password  String
   name      String
+  avatarUrl String?  // URL de la foto de perfil
+  bio       String?  // Información personal/biografía
+  phone     String?  // Teléfono de contacto
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   memberships GroupMember[]
@@ -27,6 +33,7 @@ model Group {
   id        String        @id @default(cuid())
   name      String
   ownerId   String
+  rules     String?       // Reglas del piso en formato texto
   owner     User          @relation(fields: [ownerId], references: [id])
   members   GroupMember[]
   invitations Invitation[]

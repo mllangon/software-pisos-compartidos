@@ -1,19 +1,25 @@
-import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Req, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { GroupsService } from './groups.service';
 import { JwtAuthGuard } from '../auth/jwt.guard';
+import { ErrorMessages } from '../../common/error-messages';
 import { IsEmail, IsString, MinLength } from 'class-validator';
 
 class CreateGroupDto {
-  @IsString()
-  @MinLength(2)
+  @IsString({ message: ErrorMessages.VALIDATION_FIELD_REQUIRED })
+  @MinLength(2, { message: ErrorMessages.GROUP_NAME_TOO_SHORT })
   name!: string;
 }
 
 class SendInvitationDto {
-  @IsString()
+  @IsString({ message: ErrorMessages.VALIDATION_FIELD_REQUIRED })
   groupId!: string;
-  @IsEmail()
+  @IsEmail({}, { message: ErrorMessages.VALIDATION_EMAIL_INVALID })
   inviteeEmail!: string;
+}
+
+class UpdateRulesDto {
+  @IsString()
+  rules!: string;
 }
 
 @UseGuards(JwtAuthGuard)
@@ -56,6 +62,17 @@ export class GroupsController {
   @Delete(':id')
   async delete(@Req() req: any, @Param('id') id: string) {
     return this.groups.deleteGroup(id, req.user.sub);
+  }
+
+  @Get(':id/rules')
+  async getRules(@Req() req: any, @Param('id') id: string) {
+    return this.groups.getGroupRules(id, req.user.sub);
+  }
+
+  @Put(':id/rules')
+  @UsePipes(new ValidationPipe({ whitelist: true }))
+  async updateRules(@Req() req: any, @Param('id') id: string, @Body() body: UpdateRulesDto) {
+    return this.groups.updateGroupRules(id, req.user.sub, body.rules);
   }
 }
 

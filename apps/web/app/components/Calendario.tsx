@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { extractErrorMessage, handleNetworkError } from "../utils/error-handler";
 
 type Event = {
   id: string;
@@ -40,6 +41,7 @@ export default function Calendario({ groupId, token, members, onExpenseCreated }
   const [events, setEvents] = useState<Event[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -57,7 +59,7 @@ export default function Calendario({ groupId, token, members, onExpenseCreated }
     if (!groupId || !token) return;
     loadEvents();
     loadExpenses();
-  }, [groupId, token, currentMonth]);
+  }, [groupId, token, currentMonth, currentWeek, viewType]);
 
   useEffect(() => {
     const handleClickOutside = () => {
@@ -70,12 +72,29 @@ export default function Calendario({ groupId, token, members, onExpenseCreated }
   const loadEvents = async () => {
     if (!groupId || !token) return;
     try {
-      const year = currentMonth.getFullYear();
-      const month = currentMonth.getMonth();
-      const startDate = new Date(year, month, 1).toISOString();
-      const endDate = new Date(year, month + 1, 0).toISOString();
+      let startDate: Date;
+      let endDate: Date;
 
-      const res = await fetch(`http://localhost:3001/events/group/${groupId}?startDate=${startDate}&endDate=${endDate}`, {
+      if (viewType === "week") {
+        // Calcular inicio y fin de la semana
+        const weekStart = new Date(currentWeek);
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Domingo
+        weekStart.setHours(0, 0, 0, 0);
+        
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6); // Sábado
+        weekEnd.setHours(23, 59, 59, 999);
+        
+        startDate = weekStart;
+        endDate = weekEnd;
+      } else {
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        startDate = new Date(year, month, 1);
+        endDate = new Date(year, month + 1, 0);
+      }
+
+      const res = await fetch(`http://localhost:3001/events/group/${groupId}?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -91,12 +110,29 @@ export default function Calendario({ groupId, token, members, onExpenseCreated }
     if (!groupId || !token) return;
     setLoading(true);
     try {
-      const year = currentMonth.getFullYear();
-      const month = currentMonth.getMonth();
-      const startDate = new Date(year, month, 1).toISOString();
-      const endDate = new Date(year, month + 1, 0).toISOString();
+      let startDate: Date;
+      let endDate: Date;
 
-      const res = await fetch(`http://localhost:3001/expenses/group/${groupId}?startDate=${startDate}&endDate=${endDate}`, {
+      if (viewType === "week") {
+        // Calcular inicio y fin de la semana
+        const weekStart = new Date(currentWeek);
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Domingo
+        weekStart.setHours(0, 0, 0, 0);
+        
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6); // Sábado
+        weekEnd.setHours(23, 59, 59, 999);
+        
+        startDate = weekStart;
+        endDate = weekEnd;
+      } else {
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        startDate = new Date(year, month, 1);
+        endDate = new Date(year, month + 1, 0);
+      }
+
+      const res = await fetch(`http://localhost:3001/expenses/group/${groupId}?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -151,8 +187,8 @@ export default function Calendario({ groupId, token, members, onExpenseCreated }
       });
 
       if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error);
+        const errorMsg = await extractErrorMessage(res);
+        throw new Error(errorMsg);
       }
 
       setShowModal(false);
@@ -160,7 +196,8 @@ export default function Calendario({ groupId, token, members, onExpenseCreated }
       setContextMenuPos(null);
       loadEvents();
     } catch (err: any) {
-      alert(err.message || "Error al crear evento");
+      const errorMsg = handleNetworkError(err);
+      alert(errorMsg);
     }
   };
 
@@ -189,8 +226,8 @@ export default function Calendario({ groupId, token, members, onExpenseCreated }
       });
 
       if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error);
+        const errorMsg = await extractErrorMessage(res);
+        throw new Error(errorMsg);
       }
 
       setShowModal(false);
@@ -199,7 +236,8 @@ export default function Calendario({ groupId, token, members, onExpenseCreated }
       loadExpenses();
       if (onExpenseCreated) onExpenseCreated();
     } catch (err: any) {
-      alert(err.message || "Error al crear gasto");
+      const errorMsg = handleNetworkError(err);
+      alert(errorMsg);
     }
   };
 
@@ -251,6 +289,42 @@ export default function Calendario({ groupId, token, members, onExpenseCreated }
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
   };
 
+  const prevWeek = () => {
+    const newWeek = new Date(currentWeek);
+    newWeek.setDate(newWeek.getDate() - 7);
+    setCurrentWeek(newWeek);
+  };
+
+  const nextWeek = () => {
+    const newWeek = new Date(currentWeek);
+    newWeek.setDate(newWeek.getDate() + 7);
+    setCurrentWeek(newWeek);
+  };
+
+  const getWeekDays = () => {
+    const weekStart = new Date(currentWeek);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Domingo
+    
+    const days: Date[] = [];
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(weekStart);
+      day.setDate(day.getDate() + i);
+      days.push(day);
+    }
+    return days;
+  };
+
+  const formatWeekRange = () => {
+    const weekStart = new Date(currentWeek);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    
+    const startStr = weekStart.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+    const endStr = weekEnd.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
+    return `${startStr} - ${endStr}`;
+  };
+
   const getTypeColor = (type: string) => {
     switch (type) {
       case "TASK":
@@ -284,16 +358,16 @@ export default function Calendario({ groupId, token, members, onExpenseCreated }
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <button 
-            onClick={prevMonth} 
+            onClick={viewType === "week" ? prevWeek : prevMonth} 
             className="rounded border border-zinc-600 bg-zinc-800/30 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-700/50"
           >
             ←
           </button>
           <span className="min-w-[200px] text-center text-sm font-semibold text-white">
-            {formatDate(currentMonth)}
+            {viewType === "week" ? formatWeekRange() : formatDate(currentMonth)}
           </span>
           <button 
-            onClick={nextMonth} 
+            onClick={viewType === "week" ? nextWeek : nextMonth} 
             className="rounded border border-zinc-600 bg-zinc-800/30 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-700/50"
           >
             →
@@ -303,7 +377,10 @@ export default function Calendario({ groupId, token, members, onExpenseCreated }
         {/* Selector de vista */}
         <div className="flex items-center gap-2 rounded border border-zinc-600 bg-zinc-800/30 p-1">
           <button
-            onClick={() => setViewType("month")}
+            onClick={() => {
+              setViewType("month");
+              setCurrentWeek(new Date());
+            }}
             className={`px-3 py-1 text-xs font-medium transition-colors ${
               viewType === "month"
                 ? "bg-zinc-700 text-white"
@@ -313,7 +390,10 @@ export default function Calendario({ groupId, token, members, onExpenseCreated }
             Mensual
           </button>
           <button
-            onClick={() => setViewType("week")}
+            onClick={() => {
+              setViewType("week");
+              setCurrentWeek(new Date());
+            }}
             className={`px-3 py-1 text-xs font-medium transition-colors ${
               viewType === "week"
                 ? "bg-zinc-700 text-white"
@@ -430,8 +510,60 @@ export default function Calendario({ groupId, token, members, onExpenseCreated }
           </div>
         </div>
       ) : viewType === "week" ? (
-        <div className="rounded-lg border border-zinc-700 bg-zinc-800/30 p-4 text-center text-sm text-zinc-400">
-          Vista semanal (próximamente)
+        <div className="rounded-lg border border-zinc-700 bg-zinc-800/30 overflow-hidden">
+          <div className="grid grid-cols-7 gap-px bg-zinc-800">
+            {weekDays.map((day) => (
+              <div key={day} className="bg-zinc-800/50 p-2 text-center text-xs font-semibold uppercase tracking-wide text-zinc-400 border-b border-zinc-700">
+                {day}
+              </div>
+            ))}
+            {getWeekDays().map((date, idx) => {
+              const dayEvents = getEventsForDate(date);
+              const dayExpenses = getExpensesForDate(date);
+              const isToday = date.toDateString() === new Date().toDateString();
+              const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
+
+              return (
+                <div
+                  key={idx}
+                  onClick={() => setSelectedDate(date)}
+                  onContextMenu={(e) => handleDayContextMenu(e, date)}
+                  className={`min-h-[200px] bg-zinc-800/30 p-2 border border-zinc-700/50 ${isToday ? "bg-zinc-700/50 border-zinc-600" : ""} ${isSelected ? "ring-1 ring-zinc-500" : ""} cursor-pointer hover:bg-zinc-800/50 transition-colors`}
+                >
+                  <div className={`text-sm font-semibold mb-2 ${isToday ? "text-white" : "text-zinc-300"}`}>
+                    {date.getDate()}
+                  </div>
+                  <div className="space-y-1.5">
+                    {dayEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        className={`${getTypeColor(event.type)} text-xs px-2 py-1 rounded text-zinc-200 ${event.completed ? "opacity-50 line-through" : ""}`}
+                        title={event.title}
+                      >
+                        <div className="truncate">{event.title}</div>
+                        {event.assignee && (
+                          <div className="text-xs text-zinc-400 mt-0.5">→ {event.assignee.name}</div>
+                        )}
+                      </div>
+                    ))}
+                    {dayExpenses.map((expense) => (
+                      <div
+                        key={expense.id}
+                        className="bg-zinc-700 text-xs px-2 py-1 rounded border-l-2 border-green-500 text-zinc-200"
+                        title={`${expense.description} - ${expense.amount.toFixed(2)}€`}
+                      >
+                        <div className="truncate">{expense.description}</div>
+                        <div className="text-xs font-semibold text-green-400 mt-0.5">{expense.amount.toFixed(2)}€</div>
+                      </div>
+                    ))}
+                    {dayEvents.length === 0 && dayExpenses.length === 0 && (
+                      <div className="text-xs text-zinc-500 italic">Sin eventos</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : (
         <div className="rounded-lg border border-zinc-700 bg-zinc-800/30">

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../users/prisma.service';
+import { ErrorMessages } from '../../common/error-messages';
 
 @Injectable()
 export class ExpensesService {
@@ -16,9 +17,9 @@ export class ExpensesService {
         where: { id: groupId },
         include: { members: true },
       });
-      if (!group) throw new NotFoundException('Group not found');
+      if (!group) throw new NotFoundException(ErrorMessages.GROUP_NOT_FOUND);
       const isMember = group.members.some((m: any) => m.userId === payerId);
-      if (!isMember) throw new UnauthorizedException('Not a member of this group');
+      if (!isMember) throw new UnauthorizedException(ErrorMessages.EXPENSE_NOT_MEMBER);
 
       return await (this.prisma as any).expense.create({
         data: {
@@ -43,9 +44,9 @@ export class ExpensesService {
       where: { id: groupId },
       include: { members: true },
     });
-    if (!group) throw new NotFoundException('Group not found');
+    if (!group) throw new NotFoundException(ErrorMessages.GROUP_NOT_FOUND);
     const isMember = group.members.some((m: any) => m.userId === userId);
-    if (!isMember) throw new UnauthorizedException('Not a member of this group');
+    if (!isMember) throw new UnauthorizedException(ErrorMessages.EXPENSE_NOT_MEMBER);
 
     const where: any = { groupId };
     if (startDate || endDate) {
@@ -66,13 +67,13 @@ export class ExpensesService {
       where: { id: expenseId },
       include: { group: { include: { members: true } } },
     });
-    if (!expense) throw new NotFoundException('Expense not found');
+    if (!expense) throw new NotFoundException(ErrorMessages.EXPENSE_NOT_FOUND);
     const isMember = expense.group.members.some((m: any) => m.userId === userId);
-    if (!isMember) throw new UnauthorizedException('Not a member of this group');
+    if (!isMember) throw new UnauthorizedException(ErrorMessages.EXPENSE_NOT_MEMBER);
     // Solo el que pagó o el owner del grupo puede eliminar
     const isOwner = expense.group.ownerId === userId;
     const isPayer = expense.payerId === userId;
-    if (!isOwner && !isPayer) throw new UnauthorizedException('Only payer or group owner can delete');
+    if (!isOwner && !isPayer) throw new UnauthorizedException(ErrorMessages.EXPENSE_ONLY_PAYER_OR_OWNER_CAN_DELETE);
 
     await (this.prisma as any).expense.delete({ where: { id: expenseId } });
     return { ok: true };

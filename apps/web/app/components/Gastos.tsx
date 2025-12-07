@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { extractErrorMessage, handleNetworkError } from "../utils/error-handler";
 
 type Expense = {
   id: string;
@@ -22,6 +23,7 @@ export default function Gastos({ groupId, token, members, refreshTrigger, curren
   const [gastos, setGastos] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   useEffect(() => {
     if (!groupId || !token) return;
@@ -51,13 +53,15 @@ export default function Gastos({ groupId, token, members, refreshTrigger, curren
         const data = await res.json();
         setGastos(data);
       } else if (res.status === 401) {
-        console.error("Token inválido o expirado. Por favor, inicia sesión nuevamente.");
+        localStorage.removeItem("token");
+        window.location.href = "/login";
       } else {
-        const errorText = await res.text();
-        console.error("Error loading expenses:", errorText);
+        const errorMsg = await extractErrorMessage(res);
+        setMessage(errorMsg);
       }
-    } catch (e) {
-      console.error("Error loading expenses:", e);
+    } catch (e: any) {
+      const errorMsg = handleNetworkError(e);
+      setMessage(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -144,10 +148,12 @@ export default function Gastos({ groupId, token, members, refreshTrigger, curren
 
       if (!res.ok) {
         if (res.status === 401) {
-          throw new Error("Sesión expirada. Por favor, recarga la página e inicia sesión nuevamente.");
+          localStorage.removeItem("token");
+          window.location.href = "/login";
+          return;
         }
-        const error = await res.text();
-        throw new Error(error || "Error al crear el gasto");
+        const errorMsg = await extractErrorMessage(res);
+        throw new Error(errorMsg);
       }
 
       setNombre("");
@@ -155,9 +161,11 @@ export default function Gastos({ groupId, token, members, refreshTrigger, curren
       setImporte("");
       setPayerId("");
       setSelectedParticipants([]);
+      setMessage("Gasto añadido correctamente");
       loadGastos();
     } catch (err: any) {
-      setMessage(err.message || "Error al crear gasto");
+      const errorMsg = handleNetworkError(err);
+      setMessage(errorMsg);
     }
   };
 
@@ -300,43 +308,106 @@ export default function Gastos({ groupId, token, members, refreshTrigger, curren
         </form>
       </div>
 
-      {/* Lista de gastos recientes */}
-      <div className="rounded-lg border border-zinc-700 bg-zinc-800/30">
-        <div className="border-b border-zinc-700 px-4 py-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-300">Gastos recientes</h3>
-        </div>
-        {loading ? (
-          <div className="px-4 py-6 text-center text-sm text-zinc-400">Cargando gastos...</div>
-        ) : gastos.length === 0 ? (
-          <div className="px-4 py-6 text-center text-sm text-zinc-400">No hay gastos registrados este mes.</div>
-        ) : (
-          <ul className="divide-y divide-zinc-700/50">
-            {gastos.slice(0, 10).map((g) => (
-              <li key={g.id} className="px-4 py-3 transition-colors hover:bg-zinc-800/20">
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-white">{g.description}</div>
-                    <div className="mt-0.5 flex items-center gap-2 text-xs text-zinc-400">
-                      {g.category && <span>{g.category}</span>}
-                      {g.category && <span>•</span>}
-                      <span>Pagado por {g.payer.name}</span>
+      {/* Botón para ver historial */}
+      <button
+        onClick={() => setShowHistoryModal(true)}
+        className="w-full rounded-lg border border-zinc-600 bg-zinc-800/30 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-700/50"
+      >
+        Ver historial de gastos
+      </button>
+
+      {/* Modal de historial de gastos */}
+      {showHistoryModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={() => setShowHistoryModal(false)}
+        >
+          <div
+            className="w-full max-w-3xl max-h-[90vh] rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="border-b border-zinc-700 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">Historial de gastos del mes</h3>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="text-zinc-400 transition-colors hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {loading ? (
+                <div className="py-8 text-center text-sm text-zinc-400">Cargando gastos...</div>
+              ) : gastos.length === 0 ? (
+                <div className="py-8 text-center text-sm text-zinc-400">No hay gastos registrados este mes.</div>
+              ) : (
+                <>
+                  <ul className="divide-y divide-zinc-700/50">
+                    {gastos.map((g) => (
+                      <li key={g.id} className="py-3 transition-colors hover:bg-zinc-800/20">
+                        <div className="flex items-start justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium text-white">{g.description}</div>
+                            <div className="mt-1 flex items-center gap-2 text-xs text-zinc-400">
+                              {g.category && <span>{g.category}</span>}
+                              {g.category && <span>•</span>}
+                              <span>Pagado por {g.payer.name}</span>
+                              <span>•</span>
+                              <span>{new Date(g.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}</span>
+                            </div>
+                          </div>
+                          <div className="ml-4 flex items-center gap-3">
+                            <span className="text-sm font-medium text-zinc-200">{g.amount.toFixed(2)} €</span>
+                            <button
+                              onClick={() => {
+                                removeGasto(g.id);
+                              }}
+                              className="rounded border border-zinc-600 bg-transparent px-2 py-1 text-xs text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-300"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* Recuento de gastos por persona */}
+                  <div className="mt-6 rounded-lg border border-zinc-700 bg-zinc-800/30 p-4">
+                    <h4 className="mb-4 text-sm font-semibold uppercase tracking-wide text-zinc-300">
+                      Recuento de gastos por persona
+                    </h4>
+                    <div className="space-y-3">
+                      {members.map((member) => {
+                        const memberExpenses = gastos.filter((g) => g.payer.id === member.id);
+                        const totalPaid = memberExpenses.reduce((sum, g) => sum + g.amount, 0);
+                        const count = memberExpenses.length;
+                        const average = count > 0 ? totalPaid / count : 0;
+
+                        return (
+                          <div key={member.id} className="flex items-center justify-between text-sm">
+                            <div className="flex-1">
+                              <div className="font-medium text-white">{member.name}</div>
+                              <div className="mt-0.5 text-xs text-zinc-400">
+                                {count} {count === 1 ? 'gasto' : 'gastos'} • Promedio: {average.toFixed(2)} €
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-semibold text-zinc-200">{totalPaid.toFixed(2)} €</div>
+                              <div className="text-xs text-zinc-500">Total pagado</div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                  <div className="ml-4 flex items-center gap-3">
-                    <span className="text-sm font-medium text-zinc-200">{g.amount.toFixed(2)} €</span>
-                    <button
-                      onClick={() => removeGasto(g.id)}
-                      className="rounded border border-zinc-600 bg-transparent px-2 py-1 text-xs text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-300"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

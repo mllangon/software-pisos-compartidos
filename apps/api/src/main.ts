@@ -18,9 +18,13 @@ class AllExceptionsFilter implements ExceptionFilter {
       console.error('Stack:', exception.stack);
     }
 
+    const errorMessage = typeof message === 'string' 
+      ? message 
+      : (message as any).message || 'Error interno del servidor. Por favor, intenta nuevamente más tarde.';
+    
     response.status(status).json({
       statusCode: status,
-      message: typeof message === 'string' ? message : (message as any).message || 'Internal server error',
+      message: errorMessage,
       error: exception instanceof HttpException ? (message as any).error : 'Error',
       timestamp: new Date().toISOString(),
       path: request.url,

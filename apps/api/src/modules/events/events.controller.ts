@@ -1,26 +1,27 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query, Req, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { JwtAuthGuard } from '../auth/jwt.guard';
+import { ErrorMessages } from '../../common/error-messages';
 import { IsString, MinLength, IsOptional, IsBoolean, IsDateString, IsIn } from 'class-validator';
 
 class CreateEventDto {
-  @IsString()
-  @MinLength(1)
+  @IsString({ message: ErrorMessages.VALIDATION_FIELD_REQUIRED })
+  @MinLength(1, { message: ErrorMessages.VALIDATION_FIELD_REQUIRED })
   groupId!: string;
 
-  @IsString()
-  @MinLength(1)
+  @IsString({ message: ErrorMessages.VALIDATION_FIELD_REQUIRED })
+  @MinLength(1, { message: ErrorMessages.EVENT_TITLE_REQUIRED })
   title!: string;
 
   @IsString()
   @IsOptional()
   description?: string;
 
-  @IsString()
-  @IsIn(['TASK', 'EVENT', 'REMINDER'])
+  @IsString({ message: ErrorMessages.VALIDATION_FIELD_REQUIRED })
+  @IsIn(['TASK', 'EVENT', 'REMINDER'], { message: ErrorMessages.EVENT_TYPE_INVALID })
   type!: string;
 
-  @IsDateString()
+  @IsDateString({}, { message: ErrorMessages.EVENT_DATE_REQUIRED })
   date!: string;
 
   @IsString()

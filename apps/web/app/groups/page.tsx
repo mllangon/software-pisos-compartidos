@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { extractErrorMessage, handleNetworkError } from "../utils/error-handler";
 
 type Invitation = {
   id: string;
@@ -50,7 +51,10 @@ export default function GroupsHubPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const errorMsg = await extractErrorMessage(res);
+        throw new Error(errorMsg);
+      }
       const g = await res.json();
       setCreatedGroup({ id: g.id, name: g.name });
       // refresh my groups list
@@ -58,7 +62,8 @@ export default function GroupsHubPage() {
       if (list.ok) setMyGroups(await list.json());
       setName("");
     } catch (err: any) {
-      setMessage(err.message || "Error al crear grupo");
+      const errorMsg = handleNetworkError(err);
+      setMessage(errorMsg);
     }
   };
 
@@ -70,10 +75,14 @@ export default function GroupsHubPage() {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const errorMsg = await extractErrorMessage(res);
+        throw new Error(errorMsg);
+      }
       router.replace("/dashboard");
     } catch (err: any) {
-      setMessage(err.message || "Error");
+      const errorMsg = handleNetworkError(err);
+      setMessage(errorMsg);
     }
   };
 
@@ -86,19 +95,36 @@ export default function GroupsHubPage() {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const errorMsg = await extractErrorMessage(res);
+        throw new Error(errorMsg);
+      }
       // refresh groups list
       const list = await fetch("http://localhost:3001/groups/mine", { headers: { Authorization: `Bearer ${token}` } });
       if (list.ok) setMyGroups(await list.json());
       setCreatedGroup(null);
     } catch (err: any) {
-      setMessage(err.message || "Error al eliminar");
+      const errorMsg = handleNetworkError(err);
+      setMessage(errorMsg);
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    router.push("/login");
   };
 
   return (
     <main className="mx-auto max-w-xl p-6">
-      <h1 className="mb-4 text-2xl font-semibold text-white">Tu grupo</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-white">Tu grupo</h1>
+        <button
+          onClick={handleLogout}
+          className="rounded-lg border border-zinc-700 bg-zinc-800/30 px-3 py-2 text-sm text-white transition-colors hover:bg-zinc-700/50"
+        >
+          Cerrar sesión
+        </button>
+      </div>
       <form onSubmit={onCreate} className="mb-6 space-y-3 rounded-lg border border-zinc-700 bg-zinc-900/50 p-4">
         <label className="block text-sm text-zinc-300">
           Nombre del grupo

@@ -1,17 +1,19 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { extractErrorMessage, handleNetworkError } from "../utils/error-handler";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("demo@example.com");
-  const [password, setPassword] = useState("demo123");
-  const [name, setName] = useState("Demo User");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const [message, setMessage] = useState<string>("");
   const [mode, setMode] = useState<"login" | "register">("login");
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setMessage("");
     try {
       const url = mode === "login" ? "http://localhost:3001/auth/login" : "http://localhost:3001/auth/register";
       const body = mode === "login" ? { email, password } : { email, password, name };
@@ -21,15 +23,16 @@ export default function LoginPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(errText || "Operación inválida");
+        const errorMsg = await extractErrorMessage(res);
+        throw new Error(errorMsg);
       }
       const data = await res.json();
       localStorage.setItem("token", data.access_token);
-      setMessage(mode === "login" ? "Login correcto" : "Registro correcto");
+      setMessage(mode === "login" ? "Inicio de sesión exitoso" : "Registro exitoso");
       router.replace("/groups");
     } catch (err: any) {
-      setMessage(err.message || "Error de login");
+      const errorMsg = handleNetworkError(err);
+      setMessage(errorMsg);
     }
   };
 

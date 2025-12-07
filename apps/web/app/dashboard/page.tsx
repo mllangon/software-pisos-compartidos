@@ -6,6 +6,8 @@ import { useState, useEffect } from "react";
 const Gastos = dynamic(() => import("../components/Gastos"), { ssr: false });
 const Calendario = dynamic(() => import("../components/Calendario"), { ssr: false });
 const Miembros = dynamic(() => import("../components/Miembros"), { ssr: false });
+const Perfil = dynamic(() => import("../components/Perfil"), { ssr: false });
+import { useRouter } from "next/navigation";
 
 type Member = {
   id: string;
@@ -14,6 +16,7 @@ type Member = {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const params = useSearchParams();
   const groupId = params.get("groupId");
   const [members, setMembers] = useState<Member[]>([]);
@@ -21,6 +24,11 @@ export default function DashboardPage() {
   const [refreshGastos, setRefreshGastos] = useState(0);
   const [token, setToken] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    router.push("/login");
+  };
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -90,8 +98,17 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-zinc-950 p-6">
       <div className="mx-auto w-full max-w-7xl">
-        <header className="mb-6 border-b border-zinc-800 pb-4">
+        <header className="mb-6 flex items-center justify-between border-b border-zinc-800 pb-4">
           <h1 className="text-2xl font-semibold text-white">Panel de gestión</h1>
+          <div className="flex items-center gap-3">
+            <Perfil token={token} />
+            <button
+              onClick={handleLogout}
+              className="rounded-lg border border-zinc-700 bg-zinc-800/30 px-3 py-2 text-sm text-white transition-colors hover:bg-zinc-700/50"
+            >
+              Cerrar sesión
+            </button>
+          </div>
         </header>
 
         {/* Layout de 3 columnas */}
@@ -128,7 +145,7 @@ export default function DashboardPage() {
               onInviteSent={handleInviteSent}
             />
           </div>
-        </div>
+          </div>
       </div>
     </main>
   );

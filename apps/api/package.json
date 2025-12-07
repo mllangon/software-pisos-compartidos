@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "nest start --watch",
+    "dev": "node scripts/dev.js",
     "start": "node dist/main.js",
     "build": "nest build",
     "lint": "eslint .",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
+    "prisma:seed": "ts-node prisma/seed.ts",
     "db:push": "prisma db push"
   },
   "dependencies": {
